@@ -86,6 +86,49 @@ class GPTLanguageModel(nn.Module):
         return logits, all_attention_weights
 
 
+
+    @torch.no_grad()
+    def generate(self, idx, max_new_tokens, temperature=1.0):
+
+        """
+        Generate new tokens autoregressively.
+
+        idx: starting token IDs (B, T)
+        max_new_tokens: number of new tokens to generate
+        temperature: controls randomness
+        """
+
+        if temperature <= 0:
+            raise ValueError("Temperature must be greater than zero.")
+
+        for _ in range(max_new_tokens):
+
+            # Keep only the most recent block_size tokens
+            idx_cond = idx[:, -self.block_size:]
+
+            # Forward pass
+            logits, _ = self(idx_cond)
+
+            # Get predictions for the final position
+            logits = logits[:, -1, :]
+
+            # Apply temperature
+            logits = logits / temperature
+
+            # Convert logits into probabilities
+            probabilities = torch.softmax(logits, dim=-1)
+
+            # Sample the next token
+            idx_next = torch.multinomial(
+                probabilities,
+                num_samples=1
+            )
+
+            # Append the new token
+            idx = torch.cat((idx, idx_next), dim=1)
+
+        return idx
+
 # =====================================
 # Testing Complete GPT Model
 # =====================================
